@@ -1,4 +1,5 @@
-name: CI/CD Pipeline ecommerce
+name: CI/CD Pipeline - Geo E-commerce App
+
 on:
   push:
     branches:
@@ -9,7 +10,6 @@ env:
   REGISTRY: docker.io
   FRONT_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/frontend
   BACK_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/backend
-  NAMESPACE: app-demo
 
 jobs:
   build-and-deploy:
@@ -31,9 +31,9 @@ jobs:
       - name: Build and push FRONTEND image
         uses: docker/build-push-action@v5
         with:
-          context: ./client
+          context: ./frontend
           push: true
-          tags: ${{ env.FRONT_IMAGE }}:v2
+          tags: ${{ env.FRONT_IMAGE }}:latest
 
       - name: Build and push BACKEND image
         uses: docker/build-push-action@v5
@@ -54,6 +54,6 @@ jobs:
 
       - name: Deploy to Kubernetes
         run: |
-          kubectl apply -f k8s/ -n ${{ env.NAMESPACE }}
-          kubectl rollout restart deployment backend -n ${{ env.NAMESPACE }}
-          kubectl rollout restart deployment frontend -n ${{ env.NAMESPACE }}
+          kubectl apply -f k8s/ -n app-demo --validate=false
+          kubectl rollout restart deployment backend -n app-demo
+          kubectl rollout restart deployment frontend -n app-demo
