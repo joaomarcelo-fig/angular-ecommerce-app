@@ -32,7 +32,7 @@ jobs:
       - name: Build and push FRONTEND image
         uses: docker/build-push-action@v5
         with:
-          context: ./frontend
+          context: ./client
           push: true
           tags: ${{ env.FRONT_IMAGE }}:v2
 
