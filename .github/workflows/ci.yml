@@ -88,7 +88,7 @@ jobs:
           source: "k8s/*" # Copia todos os manifestos
           target: "/tmp/k8s-deploy" # Copia para um diretório temporário na EC2
 
-      - name: 9. Rollout to Kubernetes Cluster (CORREÇÃO DE CERTIFICADO)
+      - name: 9. Rollout to Kubernetes Cluster (CORREÇÃO DE CERTIFICADO E PERMISSÃO)
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -96,23 +96,18 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
           script_stop: true
-          # O KUBECONFIG é do K3s na própria máquina EC2, mas o kubectl precisa do sudo
           script: |
             set -e
-            export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-            alias kubectl='sudo KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl'
-
             echo "Aplicando manifestos Kubernetes..."
-            # USANDO A FLAG CORRETA PARA PULAR VERIFICAÇÃO DE CERTIFICADO TLS (x509)
-            # Os manifestos foram copiados para /tmp/k8s-deploy no passo anterior
-            kubectl apply -f /tmp/k8s-deploy/ -n ${{ env.K8S_NAMESPACE }} --validate=false --insecure-skip-tls-verify
+            # Aplica os manifestos direto com sudo
+            sudo KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl apply -f /tmp/k8s-deploy/ -n ${{ env.K8S_NAMESPACE }} --validate=false --insecure-skip-tls-verify
 
             echo "Atualizando Frontend (deployment: ${{ env.FRONT_DEPLOYMENT }})..."
-            kubectl set image deployment/${{ env.FRONT_DEPLOYMENT }} web=${{ env.FRONT_IMAGE }}:latest -n ${{ env.K8S_NAMESPACE }}
-            kubectl rollout status deployment/${{ env.FRONT_DEPLOYMENT }} -n ${{ env.K8S_NAMESPACE }}
+            sudo KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl set image deployment/${{ env.FRONT_DEPLOYMENT }} web=${{ env.FRONT_IMAGE }}:latest -n ${{ env.K8S_NAMESPACE }}
+            sudo KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl rollout status deployment/${{ env.FRONT_DEPLOYMENT }} -n ${{ env.K8S_NAMESPACE }}
 
             echo "Atualizando Backend (deployment: ${{ env.BACK_DEPLOYMENT }})..."
-            kubectl set image deployment/${{ env.BACK_DEPLOYMENT }} app=${{ env.BACK_IMAGE }}:latest -n ${{ env.K8S_NAMESPACE }}
-            kubectl rollout status deployment/${{ env.BACK_DEPLOYMENT }} -n ${{ env.K8S_NAMESPACE }}
+            sudo KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl set image deployment/${{ env.BACK_DEPLOYMENT }} app=${{ env.BACK_IMAGE }}:latest -n ${{ env.K8S_NAMESPACE }}
+            sudo KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl rollout status deployment/${{ env.BACK_DEPLOYMENT }} -n ${{ env.K8S_NAMESPACE }}
 
-            echo " Deploy finalizado com sucesso"
+            echo "✅ Deploy finalizado com sucesso!"
