@@ -8,7 +8,6 @@ on:
 
 env:
   REGISTRY: docker.io
-  # Adicionei o nome de usuário aqui para corrigir o erro de login
   DOCKER_USERNAME: joaomarcelofig
 
   FRONT_IMAGE: joaomarcelofig/frontend
@@ -20,27 +19,26 @@ env:
 
 jobs:
   build-and-push:
-    name: Build and Push Docker Images
+    name: Build and Publish Docker Images
     runs-on: ubuntu-latest
 
     steps:
-      - name: 1. Checkout Repository
+      - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      - name: 2. Set up QEMU
+      - name: Configure QEMU for Multi-Architecture Builds
         uses: docker/setup-qemu-action@v3
 
-      - name: 3. Set up Docker Buildx
+      - name: Initialize Docker Buildx Environment
         uses: docker/setup-buildx-action@v3
 
-      - name: 4. Login to Docker Hub (CORRIGIDO)
+      - name: Authenticate with Docker Hub
         uses: docker/login-action@v3
         with:
-          # Usando a variável definida no bloco 'env'
           username: ${{ env.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: 5. Build and Push Frontend
+      - name: Build and Push Frontend Image
         uses: docker/build-push-action@v6
         with:
           context: ./client
@@ -52,7 +50,7 @@ jobs:
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 
-      - name: 6. Build and Push Backend
+      - name: Build and Push Backend Image
         uses: docker/build-push-action@v6
         with:
           context: ./backend
@@ -65,30 +63,29 @@ jobs:
           cache-to: type=gha,mode=max,scope=backend
 
   deploy:
-    name: Deploy to AWS EC2 (K3s Cluster)
+    name: Deploy Application to AWS EC2 (K3s Cluster)
     needs: build-and-push
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository (Necessário para copiar manifestos)
+      - name: Retrieve Repository Files
         uses: actions/checkout@v4
 
-      - name: 7. Add EC2 Host Key
+      - name: Register EC2 Host SSH Key
         run: |
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      # Copia os manifestos K8s do repositório para a EC2
-      - name: 8. Copy K8s Manifests to EC2
+      - name: Transfer Kubernetes Manifests to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "k8s/*" # Copia todos os manifestos
-          target: "/tmp/k8s-deploy" # Copia para um diretório temporário na EC2
+          source: "k8s/*"
+          target: "/tmp/k8s-deploy"
 
-      - name: 9. Rollout to Kubernetes Cluster (CORREÇÃO DE CERTIFICADO E PERMISSÃO)
+      - name: Apply Kubernetes Manifests and Update Deployments
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -98,16 +95,15 @@ jobs:
           script_stop: true
           script: |
             set -e
-            echo "Aplicando manifestos Kubernetes..."
-            # Aplica os manifestos direto com sudo
+            echo "Applying Kubernetes manifests..."
             sudo KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl apply -k /tmp/k8s-deploy/k8s/ -n ${{ env.K8S_NAMESPACE }} --validate=false --insecure-skip-tls-verify
 
-            echo "Atualizando Frontend (deployment: ${{ env.FRONT_DEPLOYMENT }})..."
+            echo "Updating Frontend deployment..."
             sudo KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl set image deployment/${{ env.FRONT_DEPLOYMENT }} web=${{ env.FRONT_IMAGE }}:latest -n ${{ env.K8S_NAMESPACE }}
             sudo KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl rollout status deployment/${{ env.FRONT_DEPLOYMENT }} -n ${{ env.K8S_NAMESPACE }}
 
-            echo "Atualizando Backend (deployment: ${{ env.BACK_DEPLOYMENT }})..."
+            echo "Updating Backend deployment..."
             sudo KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl set image deployment/${{ env.BACK_DEPLOYMENT }} app=${{ env.BACK_IMAGE }}:latest -n ${{ env.K8S_NAMESPACE }}
             sudo KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl rollout status deployment/${{ env.BACK_DEPLOYMENT }} -n ${{ env.K8S_NAMESPACE }}
 
-            echo "✅ Deploy finalizado com sucesso!"
+            echo "Deployment completed successfully."
