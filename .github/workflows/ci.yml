@@ -1,4 +1,4 @@
-name: CI/CD Pipeline - João Marcelo 
+name: CI/CD Pipeline - João Marcelo
 
 on:
   push:
