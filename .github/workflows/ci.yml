@@ -1,4 +1,4 @@
-name: CI/CD Pipeline - João Marcelo E-commerce 
+name: CI/CD Pipeline - João Marcelo 
 
 on:
   push:
