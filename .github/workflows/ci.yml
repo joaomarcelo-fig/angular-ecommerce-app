@@ -1,4 +1,4 @@
-name: CI/CD Pipeline - Geo E-commerce App
+name: CI/CD 
 
 on:
   push:
@@ -8,52 +8,62 @@ on:
 
 env:
   REGISTRY: docker.io
-  FRONT_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/frontend
-  BACK_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/backend
+  DOCKER_USER: joaomarcelofig
+  FRONT_IMAGE: joaomarcelofig/frontend
+  BACK_IMAGE: joaomarcelofig/backend
 
 jobs:
-  build-and-deploy:
+  build-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: 1. Checkout código
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
+      - name: 2. Configurar Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to Docker Hub
+      - name: 3. Login no Docker Hub (Melhorado)
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          username: ${{ env.DOCKER_USER }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }} # Usa o secret de forma limpa
 
-      - name: Build and push FRONTEND image
+      # --- CI: BUILD E PUSH DO FRONTEND ---
+      - name: 4. Build e Push FRONTEND 
         uses: docker/build-push-action@v5
         with:
-          context: ./frontend
+          context: ./client # Confirme o caminho correto para o Dockerfile do frontend
           push: true
-          tags: ${{ env.FRONT_IMAGE }}:latest
+          tags: ${{ env.FRONT_IMAGE }}:latest # Garante que a tag 'latest' seja usada
 
-      - name: Build and push BACKEND image
+      # --- CI: BUILD E PUSH DO BACKEND ---
+      - name: 5. Build e Push BACKEND 
         uses: docker/build-push-action@v5
         with:
-          context: ./backend
+          context: ./backend # Confirme o caminho correto para o Dockerfile do backend
           push: true
-          tags: ${{ env.BACK_IMAGE }}:latest
+          tags: ${{ env.BACK_IMAGE }}:latest # Garante que a tag 'latest' seja usada
 
-      - name: Set up kubectl
+      # --- CD: DEPLOY NO KUBERNETES ---
+      - name: 6. Instalar kubectl
         uses: azure/setup-kubectl@v4
         with:
-          version: 'latest'
+          version: "latest"
 
-      - name: Configure kubectl access
+      - name: 7. Configurar acesso ao kubectl (Kubeconfig)
         run: |
           mkdir -p ~/.kube
           echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
+          chmod 600 ~/.kube/config # Adiciona permissão segura
 
-      - name: Deploy to Kubernetes
+      - name: 8. Aplicar manifestos e Reiniciar Deployments
         run: |
-          kubectl apply -f k8s/ -n app-demo --validate=false
+          echo "Aplicando manifestos K8s..."
+          kubectl apply -f k8s/ -n app-demo
+          
+          echo "Forçando restart do Backend para puxar a nova imagem..."
           kubectl rollout restart deployment backend -n app-demo
+          
+          echo "Forçando restart do Frontend para puxar a nova imagem..."
           kubectl rollout restart deployment frontend -n app-demo
