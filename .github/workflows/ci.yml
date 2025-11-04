@@ -100,7 +100,7 @@ jobs:
             set -e
             echo "Aplicando manifestos Kubernetes..."
             # Aplica os manifestos direto com sudo
-            sudo KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl apply -f /tmp/k8s-deploy/k8s/ -n ${{ env.K8S_NAMESPACE }} --validate=false --insecure-skip-tls-verify
+            sudo KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl apply -k /tmp/k8s-deploy/k8s/ -n ${{ env.K8S_NAMESPACE }} --validate=false --insecure-skip-tls-verify
 
             echo "Atualizando Frontend (deployment: ${{ env.FRONT_DEPLOYMENT }})..."
             sudo KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl set image deployment/${{ env.FRONT_DEPLOYMENT }} web=${{ env.FRONT_IMAGE }}:latest -n ${{ env.K8S_NAMESPACE }}
