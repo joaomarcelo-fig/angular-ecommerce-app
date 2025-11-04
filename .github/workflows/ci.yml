@@ -115,4 +115,4 @@ jobs:
             kubectl set image deployment/${{ env.BACK_DEPLOYMENT }} app=${{ env.BACK_IMAGE }}:latest -n ${{ env.K8S_NAMESPACE }}
             kubectl rollout status deployment/${{ env.BACK_DEPLOYMENT }} -n ${{ env.K8S_NAMESPACE }}
 
-            echo " Deploy finalizado com sucesso!"
+            echo " Deploy finalizado com sucesso"
